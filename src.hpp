@@ -9,6 +9,7 @@ namespace sjtu {
 template <class T>
 class vector {
   using alloc_t = std::allocator<T>;
+  using traits_t = std::allocator_traits<alloc_t>;
 
  public:
   using value_type = T;
@@ -100,7 +101,7 @@ class vector {
 
   // Modifiers
   void clear() noexcept {
-    for (size_type i = sz_; i > 0; --i) alloc_.destroy(data_ + (i - 1));
+    for (size_type i = sz_; i > 0; --i) traits_t::destroy(alloc_, data_ + (i - 1));
     sz_ = 0;
   }
 
@@ -113,20 +114,20 @@ class vector {
 
   void push_back(const T &value) {
     if (sz_ == cap_) grow();
-    alloc_.construct(data_ + sz_, value);
+    traits_t::construct(alloc_, data_ + sz_, value);
     ++sz_;
   }
 
   void push_back(T &&value) {
     if (sz_ == cap_) grow();
-    alloc_.construct(data_ + sz_, std::move(value));
+    traits_t::construct(alloc_, data_ + sz_, std::move(value));
     ++sz_;
   }
 
   template <class... Args>
   T &emplace_back(Args &&...args) {
     if (sz_ == cap_) grow();
-    alloc_.construct(data_ + sz_, std::forward<Args>(args)...);
+    traits_t::construct(alloc_, data_ + sz_, std::forward<Args>(args)...);
     ++sz_;
     return back();
   }
@@ -147,18 +148,18 @@ class vector {
   }
 
   void reallocate(size_type new_cap) {
-    pointer new_data = alloc_.allocate(new_cap);
+    pointer new_data = traits_t::allocate(alloc_, new_cap);
     size_type i = 0;
     try {
-      for (; i < sz_; ++i) alloc_.construct(new_data + i, std::move_if_noexcept(data_[i]));
+      for (; i < sz_; ++i) traits_t::construct(alloc_, new_data + i, std::move_if_noexcept(data_[i]));
     } catch (...) {
-      for (size_type j = 0; j < i; ++j) alloc_.destroy(new_data + j);
-      alloc_.deallocate(new_data, new_cap);
+      for (size_type j = 0; j < i; ++j) traits_t::destroy(alloc_, new_data + j);
+      traits_t::deallocate(alloc_, new_data, new_cap);
       throw;
     }
     // destroy old and replace
-    for (size_type j = sz_; j > 0; --j) alloc_.destroy(data_ + (j - 1));
-    if (data_) alloc_.deallocate(data_, cap_);
+    for (size_type j = sz_; j > 0; --j) traits_t::destroy(alloc_, data_ + (j - 1));
+    if (data_) traits_t::deallocate(alloc_, data_, cap_);
     data_ = new_data;
     cap_ = new_cap;
   }
@@ -170,4 +171,3 @@ class vector {
 };
 
 }  // namespace sjtu
-
